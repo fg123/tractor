@@ -1,26 +1,15 @@
-var socket = io();
-var myId = "";
-var players = [];
-var gamePlaying = false;
-var currentTurn = false;
+const socket = io();
+let myId = "";
+let players = [];
+let gamePlaying = false;
+let currentTurn = false;
+let cardHand = [];
+let mainCard = "5D";
+let cardsToPlay = new Array();
+let handToPlay = {};
+let currentStart = { pairs: ["1H"], singles: ["13H"] };
+let flipStatus = 0;
 
-var cardHand = [];
-var mainCard = "5D";
-var cardsToPlay = new Array();
-var handToPlay = {};
-// A Hand is a { pairs: Arr<Str>, singles: Arr<Str> }
-var currentStart = { pairs: ["1H"], singles: ["13H"] };
-
-// These are for UI
-var leftPlayer = null;
-var topPlayer = null;
-var rightPlayer = null;
-
-var flipStatus = 0;
-
-// Cards Identified by number + suit, aka 10H (10 of hearts) J for joker and JJ
-//   for big joker
-//generateRandomHand();
 updateHand();
 console.log(convertToHand(cardHand));
 $("#game").hide();
@@ -73,18 +62,7 @@ socket.on("cardDeal", function (cardToDeal) {
 });
 socket.on("updatePlayers", function (plist) {
 	players = plist;
-	var wlist = players;
-	while (wlist.length < 4) {
-		wlist.push(null);
-	}
-	wlist = wlist.concat(wlist); // create the loop
-	var i = 0; // Find my ID
-	while (wlist[i].id != myId) {
-		i++;
-	}
-	rightPlayer = wlist[i + 1];
-	topPlayer = wlist[i + 2];
-	leftPlayer = wlist[i + 3];
+
 	updatePlayerUI();
 });
 $(".flip-diamonds").click(function () {
@@ -148,30 +126,25 @@ function handContains(card, count)
 // updatePlayerUI() reloads the other user displays.
 function updatePlayerUI()
 {
-	if (topPlayer == null) {
-		$(".topPlayer").hide();
+	let htmlStrings = [];
+	let rotate = 0;
+	for (let i = 0; i < players.length; i++) {
+		if (players[i].id !== myId) {
+			htmlStrings.push(`<div class="otherPlayer player">
+				<span class="name">${players[i].name}</span><br><br>
+				<div class="card back display"></div>
+			</div>`);
+		}
+		else {
+			rotate = i;
+		}
 	}
-	else
-	{
-		$(".topPlayer").show();
-		$(".topPlayer > .name").html(topPlayer.name);
+	htmlStrings = htmlStrings.concat(htmlStrings);
+	let htmlString = "";
+	for (let i = 0; i < players.length - 1; i++) {
+		htmlString += htmlStrings[i + rotate];
 	}
-	if (rightPlayer == null) {
-		$(".rightPlayer").hide();
-	}
-	else
-	{
-		$(".rightPlayer").show();
-		$(".rightPlayer > .name").html(rightPlayer.name);
-	}
-	if (leftPlayer == null) {
-		$(".leftPlayer").hide();
-	}
-	else
-	{
-		$(".leftPlayer").show();
-		$(".leftPlayer > .name").html(leftPlayer.name);
-	}
+	$(".otherPlayers").html(htmlString);
 	var playerList = "<b>Players: </b>";
 	var i = 0;
 	while (i < players.length)

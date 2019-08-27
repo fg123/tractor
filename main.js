@@ -23,10 +23,6 @@ io.on('connection', function(socket){
     {
         removePlayer(socket.id);
 	});
-	socket.on('flip', function (suit) {
-		FlipStatus++;
-		io.emit("flip", FlipStatus);
-	});
     socket.on('nickname', function (name)
 	{
 		if (PlayerList.length < 4)

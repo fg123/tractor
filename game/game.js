@@ -1,4 +1,6 @@
 const Deck = require('./deck');
+const GameUtils = require('./gameUtils');
+const Hand = require('./hand');
 
 /**
  * The game state has a timed component on the first draw. The game state
@@ -14,10 +16,26 @@ const STATE_DEALING = "dealing";
 const STATE_WAITING_FOR_BOTTOM = "waiting";
 const STATE_IN_GAME = "ingame";
 
+// All StateChanges must contain the field "player" which is the destination
 class DealStateChange {
-    constructor (player, card) {
-        this.player = player;
+    constructor (toPlayer, card) {
+        this.player = toPlayer;
         this.card = card;
+    }
+}
+
+class PlayCardsStateChange {
+    constructor (toPlayer, fromPlayer, cards) {
+        this.player = toPlayer;
+        this.fromPlayer = fromPlayer;
+        this.cards = cards;
+    }
+}
+
+class ErrorStateChange {
+    constructor (toPlayer, msg) {
+        this.player = toPlayer;
+        this.msg = msg;
     }
 }
 
@@ -27,6 +45,10 @@ class GameState {
         this.playerCount = playerCount;
         // TODO: make deck size based on player count
         this.deck = new Deck(2, true);
+        this.hands = [];
+        for (let i = 0; i < playerCount; i++) {
+            this.hands.push(new Hand());
+        }
         this.currentTurn = firstPlayer;
         this.dealer = 0;
         this.currentState = STATE_READY;
@@ -34,6 +56,10 @@ class GameState {
         this.log = [];
         this.trumpNumber = trumpNumber;
         this.trumpSuit = undefined;
+        this.trumpSuitDeclaredCount = 0;
+        this.lead = undefined;
+
+        this.gameUtils = new GameUtils(this);
     }
 
     output(data) {
@@ -46,17 +72,22 @@ class GameState {
         this.deal();
     }
 
+    dealCardToHand(player, card) {
+        this.hands[player].addCard(card);
+        this.output(new DealStateChange(player, card));
+    }
+
     deal() {
         this.currentState = STATE_DEALING;
         if (this.deck.size() <= 8) {
             // Deal the rest to the dealer
             this.currentState = STATE_WAITING_FOR_BOTTOM;
             while (this.deck.size() > 0) {
-                this.output(new DealStateChange(this.dealer, this.deck.draw()));
+                this.dealCardToHand(this.dealer, this.deck.draw());
             }
             return;
         }
-        this.output(new DealStateChange(this.currentTurn, this.deck.draw()));
+        this.dealCardToHand(this.currentTurn, this.deck.draw());
         this.advancePlayer();
         setTimeout(() => { this.deal(); }, DEAL_DELAY);
     }
@@ -65,8 +96,50 @@ class GameState {
         this.currentTurn = (this.currentTurn + 1) % this.playerCount;
     }
 
-    playCards(player, cards) {
+    _playCards(player, cards) {
+        // Playing during dealing phase:
+        if (this.currentState === STATE_DEALING) {
+            // Anyone can play a card
+            if (this.gameUtils.isAllNumber(cards, this.trumpNumber) && this.gameUtils.isAllSameCard(cards) && cards.length > this.trumpSuitDeclaredCount) {
+                // Match number + valid pair + more cards played
+                // TODO: Joker call no suit
+                this.trumpSuitDeclaredCount = cards.length();
+                this.trumpSuit = this.gameUtils.getSuit(cards[0]);
+                return;
+            }
+            throw "Not a valid hand to flip for suit.";
+        }
 
+        if (player !== this.currentTurn) {
+            throw "Not your turn!";
+        }
+
+        if (this.lead === undefined) {
+            // TODO: implement throw mechanics
+            this.gameUtils.validateLead(cards);
+            this.lead = cards;
+        }
+        else {
+            // This will throw a valid exception if it's not a valid hand
+            this.gameUtils.validateFollow(this.lead, cards, this.hands[player]);
+        }
+    }
+
+    playCards(player, cards) {
+        try {
+            this._playCards(player, cards);
+            // Notify Everyone
+            for (let i = 0; i < cards.length; i++) {
+                this.hands[player].removeCard(cards[i]);
+            }
+            for (let i = 0; i < this.playerCount; i++) {
+                this.output(new PlayCardsStateChange(i, player, cards));
+            }
+            this.advancePlayer();
+        }
+        catch (e) {
+            this.output(new ErrorStateChange(i, e));
+        }
     }
 }
 
