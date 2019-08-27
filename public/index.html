@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+	<head>
+		<title>Tractor Game</title>
+
+		<link href="bootstrap.css" rel="stylesheet" type="text/css">
+		<link href="animate.css" rel="stylesheet" type="text/css">
+		<link href="main.css" type="text/css" rel="stylesheet">
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+	</head>
+	<body>
+		<div class="container" id="login">
+			<div class="row">
+				<div class="col-md-4"></div>
+				<div class="col-md-4">
+						<div class="panel panel-primary animated bounceIn">
+							<div class="panel-heading">
+								<h3 class="panel-title">Please Enter Your Nickname</h3>
+							</div>
+							<div class="panel-body">
+								<div class="input-group">
+									<input type="text" class="form-control" placeholder="Enter Nickname" id="nickname">
+									<span class="input-group-btn">
+										<button class="btn btn-success" type="button" id="joinGameBtn">Join Game!</button>
+									</span>
+								</div><!-- /input-group -->
+							</div>
+						</div>
+				</div>
+				<div class="col-md-4"></div>
+			</div>
+		</div>
+		<div class="game" id="game">
+			<div class="scoreboard">
+				&nbsp;
+			</div>
+			<div class="topPlayer player">
+				<span class="name">Kevin</span><br><br>
+				<div class="card back display"></div>
+			</div>
+			<div class="leftPlayer player">
+				<span class="name">Kevin</span>
+				<div class="card back display rotate"></div>
+			</div>
+			<div class="rightPlayer player">
+				<div class="card back display rotate"></div>
+				<span class="name">Kevin</span>
+			</div>
+			<div class="myOptions options">
+				<button class="btn btn-lg btn-danger">Play Cards ➤</button>
+			</div>
+			<div class="flipCard options">
+				<button class="btn btn-lg btn-red flip-diamonds">&diams;</button>
+				<button class="btn btn-lg btn-black flip-clubs">&clubs;</button>
+				<button class="btn btn-lg btn-red flip-hearts">&hearts;</button>
+				<button class="btn btn-lg btn-black flip-spades">&spades;</button>
+				<button class="btn btn-lg btn-black flip-joker">&#129313;</button>
+			</div>
+			<div class="me">
+				<div class="card back">
+					&nbsp;
+				</div>
+				<div class="card hearts">
+					<div class="value">
+						8 <br> &hearts;
+					</div>
+					<div class="suit">
+						&hearts;
+					</div>
+				</div>
+				<div class="card bJoker">
+					<div class="value">
+						<br><br>
+					</div>
+					<div class="suit">
+						&#129313;
+					</div>
+				</div>
+			</div>
+		</div>
+		<script src="jquery.min.js"></script>
+		<script src="/socket.io/socket.io.js"></script>
+		<script src="game.js"></script>
+  </body>
+</html>

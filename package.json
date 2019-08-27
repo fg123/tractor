@@ -1,0 +1,10 @@
+{
+  "name": "tractor-game",
+  "version": "0.0.1",
+  "description": "based on the chinese game",
+  "dependencies": {
+    "bootstrap": "^3.3.7",
+    "express": "^4.14.0",
+    "socket.io": "^1.7.2"
+  }
+}
