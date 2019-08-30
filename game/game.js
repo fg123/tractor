@@ -10,17 +10,21 @@ const Hand = require('./hand');
  * The game state will verify all inputs, and will output an error packet to
  *   the client that gives an invalid input.
  */
-const DEAL_DELAY = 100;
-const STATE_READY = "ready";
-const STATE_DEALING = "dealing";
-const STATE_WAITING_FOR_BOTTOM = "waiting";
-const STATE_IN_GAME = "ingame";
+const DEAL_DELAY = 1;
+const STATE_READY = 'ready';
+const STATE_DEALING = 'dealing';
+const STATE_WAITING_FOR_BOTTOM = 'waiting';
+const STATE_IN_GAME = 'ingame';
 
-// All StateChanges must contain the field "player" which is the destination
+// All StateChanges must contain the field 'player' which is the destination
 class DealStateChange {
     constructor (toPlayer, card) {
         this.player = toPlayer;
         this.card = card;
+    }
+
+    sendToClient(socket) {
+        socket.emit('cardDeal', this.card);
     }
 }
 
@@ -30,12 +34,20 @@ class PlayCardsStateChange {
         this.fromPlayer = fromPlayer;
         this.cards = cards;
     }
+
+    sendToClient(socket) {
+        socket.emit('play-cards', this.fromPlayer, this.cards);
+    }
 }
 
 class ErrorStateChange {
     constructor (toPlayer, msg) {
         this.player = toPlayer;
         this.msg = msg;
+    }
+
+    sendToClient(socket) {
+        socket.emit('server-error', this.msg);
     }
 }
 
@@ -107,11 +119,11 @@ class GameState {
                 this.trumpSuit = this.gameUtils.getSuit(cards[0]);
                 return;
             }
-            throw "Not a valid hand to flip for suit.";
+            throw 'Not a valid hand to flip for suit.';
         }
 
         if (player !== this.currentTurn) {
-            throw "Not your turn!";
+            throw 'Not your turn!';
         }
 
         if (this.lead === undefined) {
@@ -126,6 +138,7 @@ class GameState {
     }
 
     playCards(player, cards) {
+        console.log(`Player ${player} played ${cards}`);
         try {
             this._playCards(player, cards);
             // Notify Everyone
@@ -138,7 +151,7 @@ class GameState {
             this.advancePlayer();
         }
         catch (e) {
-            this.output(new ErrorStateChange(i, e));
+            this.output(new ErrorStateChange(player, e));
         }
     }
 }

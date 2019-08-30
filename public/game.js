@@ -1,106 +1,139 @@
 const socket = io();
-let myId = "";
+let myId = '';
+let myPosition = 0;
 let players = [];
 let gamePlaying = false;
 let currentTurn = false;
 let cardHand = [];
-let mainCard = "5D";
-let cardsToPlay = new Array();
-let handToPlay = {};
-let currentStart = { pairs: ["1H"], singles: ["13H"] };
+let mainCard = '5D';
+let cardsToPlay = [];
+let currentStart = { pairs: ['1H'], singles: ['13H'] };
 let flipStatus = 0;
+const errorQueue = [];
+let errorTimer = undefined;
 
+const ERROR_TIMEOUT = 1000;
 updateHand();
-console.log(convertToHand(cardHand));
-$("#game").hide();
-$(".myOptions").hide();
-$(".flipCard").hide();
+$('#game').hide();
+$('.flipCard').hide();
 $(document).ready(() => {
-    $("#nickname").focus();
-    $("#nickname").keydown((e) => {
+    $('#nickname').focus();
+    $('#nickname').keydown((e) => {
         if (e.which === 13) {
-            $("#joinGameBtn").click();
+            $('#joinGameBtn').click();
         }
     });
 });
-$("#joinGameBtn").click(function () {
-	if ($("#nickname").val() != "")
+$('#joinGameBtn').click(function () {
+	if ($('#nickname').val() != '')
 	{
-		socket.emit("nickname", $("#nickname").val());
-		$("#login").hide();
+		socket.emit('nickname', $('#nickname').val());
+		$('#login').hide();
 	}
 });
-socket.on("updatePlayers", function (p) {
+
+
+$('.play-cards').click(function () {
+	console.log('Playing cards', cardsToPlay, cardHand.filter((v, i) => cardsToPlay[i]));
+	socket.emit('play-cards', cardHand.filter((v, i) => cardsToPlay[i]));
+});
+
+$('#nickname').val('a');
+$('#joinGameBtn').click();
+
+socket.on('updatePlayers', function (p) {
 	players = p;
 });
-socket.on("lobbyEnter", function (id) {
-	$("#game").show();
+socket.on('lobbyEnter', function (id, playerPosition) {
+	$('#game').show();
 	myId = id;
+	myPosition = playerPosition;
 });
-socket.on("lobbyFull", function () {
-	$("#login").show();
-	alert("Lobby is full!");
+socket.on('lobbyFull', function () {
+	$('#login').show();
+	alert('Lobby is full!');
 });
-socket.on("turnPassover", function (p) {
+socket.on('turnPassover', function (p) {
 	currentTurn = true;
 });
-socket.on("flip", function (fStat) {
+socket.on('flip', function (fStat) {
 	flipStatus = fStat;
 });
-socket.on("setMainNumber", function (n) {
-	mainCard = n + "D";
+socket.on('setMainNumber', function (n) {
+	mainCard = n + 'D';
 });
-socket.on("cardDeal", function (cardToDeal) {
-	$(".flipCard").show();
+
+socket.on('play-cards', function (who, cards) {
+	if (who === myPosition) {
+		setPlayingField('.player-me.playingField', cards);
+		for (let i = 0; i < cards.length; i++) {
+			cardHand.splice(cardHand.indexOf(cards[i]), 1);
+		}
+		cardsToPlay = [];
+	}
+	else {
+		setPlayingField('.playingField.player-' + who, cards);
+	}
+	updateHand();
+
+});
+
+socket.on('server-error', function (msg) {
+	errorQueue.push(msg);
+	showErrorIfNecessary();
+});
+
+function setPlayingField(selector, cards) {
+	$(selector).html('');
+	$(selector).width(cards.length * 30 + 80);
+	for (let i = 0; i < cards.length; i++) {
+		$(selector).append($(createCard(cards[i], i, i * 30)));
+	}
+}
+function errorTimeout() {
+	errorTimer = undefined;
+	if (errorQueue.length === 0) {
+		$('.errorMessage').html('');
+	}
+	else {
+		showErrorIfNecessary();
+	}
+}
+
+function showErrorIfNecessary() {
+	if (errorTimer === undefined && errorQueue.length !== 0) {
+		$('.errorMessage').html(errorQueue.shift());
+		errorTimer = setTimeout(errorTimeout, ERROR_TIMEOUT);
+	}
+}
+
+socket.on('cardDeal', function (cardToDeal) {
+	console.log('Card Deal Event');
 	cardHand.push(cardToDeal);
 	updateHand();
-	handContains(mainCard.slice(0, -1) + "D", flipStatus + 1) ? $(".flip-diamonds").show() : $(".flip-diamonds").hide();
-	handContains(mainCard.slice(0, -1) + "C", flipStatus + 1) ? $(".flip-clubs").show() : $(".flip-clubs").hide();
-	handContains(mainCard.slice(0, -1) + "H", flipStatus + 1) ? $(".flip-hearts").show() : $(".flip-hearts").hide();
-	handContains(mainCard.slice(0, -1) + "S", flipStatus + 1) ? $(".flip-spades").show() : $(".flip-spades").hide();
-	handContains("JJ", Math.max(flipStatus + 1, 2)) || handContains("J", Math.max(flipStatus + 1, 2)) ? $(".flip-joker").show() : $(".flip-joker").hide();
+	handContains(mainCard.slice(0, -1) + 'D', flipStatus + 1) ? $('.flip-diamonds').show() : $('.flip-diamonds').hide();
+	handContains(mainCard.slice(0, -1) + 'C', flipStatus + 1) ? $('.flip-clubs').show() : $('.flip-clubs').hide();
+	handContains(mainCard.slice(0, -1) + 'H', flipStatus + 1) ? $('.flip-hearts').show() : $('.flip-hearts').hide();
+	handContains(mainCard.slice(0, -1) + 'S', flipStatus + 1) ? $('.flip-spades').show() : $('.flip-spades').hide();
+	handContains('JJ', Math.max(flipStatus + 1, 2)) || handContains('J', Math.max(flipStatus + 1, 2)) ? $('.flip-joker').show() : $('.flip-joker').hide();
 });
-socket.on("updatePlayers", function (plist) {
+socket.on('updatePlayers', function (plist) {
 	players = plist;
 
 	updatePlayerUI();
 });
-$(".flip-diamonds").click(function () {
-	socket.emit("flip", "D");
+$('.flip-diamonds').click(function () {
+	socket.emit('flip', 'D');
 });
- $(".flip-clubs").click(function () {
-	socket.emit("flip", "C");
+ $('.flip-clubs').click(function () {
+	socket.emit('flip', 'C');
 });
- $(".flip-hearts").click(function () {
-	socket.emit("flip", "H");
+ $('.flip-hearts').click(function () {
+	socket.emit('flip', 'H');
  });
- $(".flip-spades").click(function () {
-	socket.emit("flip", "S");
+ $('.flip-spades').click(function () {
+	socket.emit('flip', 'S');
  });
-$(".card").click(function () {
-	if ($(this).data("selected"))
-	{
-		toggleCard($(this).data("card"), 0);
-		$(this).data("selected", 0);
-		$(this).removeClass("selected");
-	}
-	else
-	{
-		toggleCard($(this).data("card"), 1);
-		$(this).data("selected", 1);
-		$(this).addClass("selected");
-	}
-	handToPlay = convertToHand(cardsToPlay);
-	if (isLegal())
-	{
-		$(".myOptions").show();
-	}
-	else
-	{
-		$(".myOptions").hide();
-	}
-	//console.log(handToPlay);
-});
 
 // handContains(card, count) returns true if your hand contains the given number
 //   of the card
@@ -130,9 +163,9 @@ function updatePlayerUI()
 	let rotate = 0;
 	for (let i = 0; i < players.length; i++) {
 		if (players[i].id !== myId) {
-			htmlStrings.push(`<div class="otherPlayer player">
-				<span class="name">${players[i].name}</span><br><br>
-				<div class="card back display"></div>
+			htmlStrings.push(`<div class='otherPlayer player'>
+				<span class='name'>${players[i].name}</span><br><br>
+				<div class='playingField player-${i}'></div>
 			</div>`);
 		}
 		else {
@@ -140,38 +173,29 @@ function updatePlayerUI()
 		}
 	}
 	htmlStrings = htmlStrings.concat(htmlStrings);
-	let htmlString = "";
+	let htmlString = '';
 	for (let i = 0; i < players.length - 1; i++) {
 		htmlString += htmlStrings[i + rotate];
 	}
-	$(".otherPlayers").html(htmlString);
-	var playerList = "<b>Players: </b>";
+	$('.otherPlayers').html(htmlString);
+	var playerList = '<b>Players: </b>';
 	var i = 0;
 	while (i < players.length)
 	{
 		if (players[i] != null)
 		{
-			playerList += "<br>" + players[i].name + " 打 " + players[i].score;
+			playerList += '<br>' + players[i].name + ' 打 ' + players[i].score;
 
 		}
 		i++;
 	}
-	$(".scoreboard").html(playerList);
+	$('.scoreboard').html(playerList);
 }
-// toggleCard(cardValue) when user clicks on the card.
-function toggleCard(cardValue, add)
+
+// toggleCard(cardPosition) when user clicks on the card.
+function toggleCard(cardPosition)
 {
-	console.log("Old cards to play " + cardsToPlay);
-	if (add)
-	{
-		cardsToPlay.push(cardValue);
-	}
-	else
-	{
-		console.log("Removed from cardsToPlay: " + cardValue + " " + cardsToPlay);
-		cardsToPlay.splice(cardsToPlay.indexOf(cardValue), 1);
-	}
-	console.log("New Cards to Play: " + cardsToPlay);
+	cardsToPlay[cardPosition] = !cardsToPlay[cardPosition];
 }
 
 // createCard(cardValue, index, xPos) produces a string of the created card with
@@ -179,75 +203,76 @@ function toggleCard(cardValue, add)
 // createCard: Str Num Num -> Str
 function createCard(cardValue, index, xPos)
 {
-	var cardClass = "card ";
-	var cardDisplayNum = "";
-	var cardSuit = "";
-	if (cardValue == "JJ") //big joker
+	var cardClass = 'card ';
+	var cardDisplayNum = '';
+	var cardSuit = '';
+	if (cardValue == 'JJ') //big joker
 	{
-		cardDisplayNum = "<br><br>";
-		cardClass += "bJoker ";
-		cardSuit = "&#129313;";
+		cardDisplayNum = '<br><br>';
+		cardClass += 'bJoker ';
+		cardSuit = '&#129313;';
 	}
-	else if (cardValue == "J") //small joker
+	else if (cardValue == 'J') //small joker
 	{
-		cardDisplayNum = "<br><br>";
-		cardClass += "sJoker ";
-		cardSuit = "&#129313;";
+		cardDisplayNum = '<br><br>';
+		cardClass += 'sJoker ';
+		cardSuit = '&#129313;';
 	}
 	else // regular card
 	{
 		var cLen = cardValue.length;
 		var cSuit = cardValue.slice(-1);
 		var cVal = cardValue.substring(0, cLen - 1);
-		if (cSuit == "H")
+		if (cSuit == 'H')
 		{
-			cardSuit = "&hearts;";
-			cardClass += "hearts ";
+			cardSuit = '&hearts;';
+			cardClass += 'hearts ';
 		}
-		else if (cSuit == "C")
+		else if (cSuit == 'C')
 		{
-			cardSuit = "&clubs;";
-			cardClass += "clubs ";
+			cardSuit = '&clubs;';
+			cardClass += 'clubs ';
 		}
-		else if (cSuit == "S")
+		else if (cSuit == 'S')
 		{
-			cardSuit = "&spades;";
-			cardClass += "spades ";
+			cardSuit = '&spades;';
+			cardClass += 'spades ';
 		}
-		else if (cSuit == "D")
+		else if (cSuit == 'D')
 		{
-			cardSuit = "&diams;";
-			cardClass += "diamonds ";
+			cardSuit = '&diams;';
+			cardClass += 'diamonds ';
 		}
 
-		if (cVal == "11")
+		if (cVal == '11')
 		{
-			cardDisplayNum = "J<br>" + cardSuit;
+			cardDisplayNum = 'J<br>' + cardSuit;
 		}
-		else if (cVal == "12")
+		else if (cVal == '12')
 		{
-			cardDisplayNum = "Q<br>" + cardSuit;
+			cardDisplayNum = 'Q<br>' + cardSuit;
 		}
-		else if (cVal == "13")
+		else if (cVal == '13')
 		{
-			cardDisplayNum = "K<br>" + cardSuit;
+			cardDisplayNum = 'K<br>' + cardSuit;
 		}
-		else if (cVal == "1")
+		else if (cVal == '1')
 		{
-			cardDisplayNum = "A<br>" + cardSuit;
+			cardDisplayNum = 'A<br>' + cardSuit;
 		}
 		else
 		{
-			cardDisplayNum = cVal + "<br>" + cardSuit;
+			cardDisplayNum = cVal + '<br>' + cardSuit;
 		}
 	}
-	return '<div data-selected="0" data-card="' + cardValue + '" style="z-index:' + index + ';left:' + xPos + 'px" class="' + cardClass + '" > \
-		<div class="value"> \
-						'+cardDisplayNum+'\
-					</div>\
-					<div class="suit">    		\
-						'+cardSuit+'\
-					</div></div>';
+	return `<div
+		data-selected='0'
+		data-card='${cardValue}'
+		style='z-index: ${index}; left: ${xPos}px'
+		class='${cardClass}'>
+			<div class='value'>${cardDisplayNum}</div>
+			<div class='suit'>${cardSuit}</div>
+	</div>`;
 }
 
 // sortHand() sorts the cards in cardHand based on Joker, Main Numbers,
@@ -266,11 +291,11 @@ function sortHand()
 	for (var i = 0; i < cardHand.length; i++)
 	{
 		var c = cardHand[i];
-		if (c == "JJ")
+		if (c == 'JJ')
 		{
 			jokers.unshift(c);
 		}
-		else if(c == "J")
+		else if(c == 'J')
 		{
 			jokers.push(c);
 		}
@@ -287,34 +312,34 @@ function sortHand()
 			{
 				switch (suit)
 				{
-					case "H": hearts = insertInto(c, hearts); break;
-					case "D": diamonds = insertInto(c, diamonds); break;
-					case "S": spades = insertInto(c, spades); break;
-					case "C": clubs = insertInto(c, clubs); break;
+					case 'H': hearts = insertInto(c, hearts); break;
+					case 'D': diamonds = insertInto(c, diamonds); break;
+					case 'S': spades = insertInto(c, spades); break;
+					case 'C': clubs = insertInto(c, clubs); break;
 				}
 			}
 		}
 	}
 	cardHand = jokers.concat(mains);
-	if (mainSuit == "N") // no suit
+	if (mainSuit == 'N') // no suit
 	{
-		mainSuit = "D"; // just for ordering purposes
+		mainSuit = 'D'; // just for ordering purposes
 	}
 	switch (mainSuit)
 	{
-		case "H":
+		case 'H':
 			cardHand = cardHand.concat(
 				hearts.concat(spades.concat(diamonds.concat(clubs))));
 			break;
-		case "D":
+		case 'D':
 			cardHand = cardHand.concat(
 				diamonds.concat(clubs.concat(hearts.concat(spades))));
 			break;
-		case "S":
+		case 'S':
 			cardHand = cardHand.concat(
 				spades.concat(diamonds.concat(clubs.concat(hearts))));
 			break;
-		case "C":
+		case 'C':
 			cardHand = cardHand.concat(
 				clubs.concat(hearts.concat(spades.concat(diamonds))));
 			break;
@@ -333,7 +358,7 @@ function insertInto(card, lst)
 		currVal = parseInt(lst[i], 10);
 		if (cVal == 1) { cVal = 14; } //to guarantee 1 is at the end
 		if (currVal == 1) { currVal = 14; } //to guarantee 1 is at the end
-		//console.log(cVal + " " + currVal);
+		//console.log(cVal + ' ' + currVal);
 		if (cVal >= currVal)
 		{
 			lst.splice(i, 0, card);
@@ -344,17 +369,47 @@ function insertInto(card, lst)
 	lst.push(card);
 	return lst;
 }
+
+function updateSelectedCards() {
+	for (let i = 0; i < cardHand.length; i++) {
+		let card = $('.me div:nth-child(' + (i + 1) + ')');
+		if (cardsToPlay[i]) {
+			card.data('selected', 1);
+			card.addClass('selected');
+		}
+		else {
+			card.data('selected', 0);
+			card.removeClass('selected');
+		}
+	}
+	if (Object.values(cardsToPlay).filter(Boolean).length > 0) {
+		$('.play-cards').show();
+	}
+	else {
+		$('.play-cards').hide();
+	}
+}
+
 // updateHand() updates the player's hand with the cards in cardHand
 function updateHand()
 {
+	// TODO: sortHand makes the cardsToPlay awkward as it shifts
 	sortHand();
-	var output = "";
-	for (var i = 0; i < cardHand.length; i++)
-	{
-		output += createCard(cardHand[i], i, i * 30);
+	console.log(cardHand);
+	var output = '';
+	$('.me').width(cardHand.length * 30 + 80);
+	$('.me').html('');
+	for (let i = 0; i < cardHand.length; i++) {
+		let card = $(createCard(cardHand[i], i, i * 30));
+		// So it captures the right number in the closure.
+		let j = i;
+		card.click(function () {
+			toggleCard(j);
+			updateSelectedCards();
+		});
+		$('.me').append(card);
 	}
-	$(".me").width(cardHand.length * 30 + 80);
-	$(".me").html(output);
+	updateSelectedCards();
 }
 
 // convertToHand(loC) converts an array of cards into a hand object
@@ -403,7 +458,7 @@ function isLegal()
 	var activeSuit = currentStartL[0].slice(-1);
 	// Case1, no suit of the currentStart, we allow player to play any cards as
 	//   long as it matches the count.
-	console.log("Has playable? + " + hasPlayable(activeSuit, cardHand, startIsMain));
+	console.log('Has playable? + ' + hasPlayable(activeSuit, cardHand, startIsMain));
 	if (!hasPlayable(activeSuit, cardHand, startIsMain))
 	{
 		return (currentStartL.length == cardsToPlay.length);
@@ -474,58 +529,8 @@ function difference(a, b)
 function isMain(card)
 {
 	return (card.slice(-1) == mainCard.slice(-1) ||
-		card == "JJ" ||
-		card == "J" ||
+		card == 'JJ' ||
+		card == 'J' ||
 		parseInt(card.substring(0, card.length - 1), 10)
 		== parseInt(mainCard.substring(0, mainCard.length - 1), 10));
-}
-
-// hasPlayable(suit, isMain) returns true if hand contains one of the suit and
-//   also factors in the calculation for the main card.
-function hasPlayable(suit, loC, isMain0)
-{
-	for (var i = 0; i < loC.length; i++)
-	{
-		if (isMain0)
-		{
-			if (isMain(loC[i]))
-			{
-				return true;
-			}
-		}
-		else
-		{
-			if (loC[i].slice(-1) == suit && !isMain(loC[i]))
-			{
-				console.log("Reached");
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
-// countPlayable(suit, isMain) returns number of playable cards
-function countPlayable(suit, loC, isMain0)
-{
-	var res = 0;
-	for (var i = 0; i < loC.length; i++)
-	{
-		if (isMain0)
-		{
-			if (isMain(loC[i]))
-			{
-				res++;
-			}
-		}
-		else
-		{
-			if (loC[i].slice(-1) == suit && !isMain(loC[i]))
-			{
-				res++;
-				console.log("hi it's suit" );
-			}
-		}
-	}
-	return res;
 }

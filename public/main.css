@@ -120,7 +120,7 @@ div.otherPlayers {
 
 div.otherPlayer {
 	display: inline-block;
-	width: 200px;
+	width: 350px;
 }
 
 div.me {
@@ -138,6 +138,19 @@ div.player {
 	color: #FFF;
 	padding: 10px;
 	font-weight: bold;
+}
+
+div.playingField {
+	height: 150px;
+	margin-left: auto;
+	margin-right: auto;
+	position: relative;
+}
+
+div.errorMessage {
+	color: #FFF;
+	font-weight: bold;
+	padding: 10px;
 }
 
 div.options {

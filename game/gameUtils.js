@@ -1,3 +1,5 @@
+const Hand = require('./hand');
+
 class GameUtils {
     constructor(game) {
         this.game = game;
@@ -20,7 +22,7 @@ class GameUtils {
     }
 
     isJoker(card) {
-        return card === "JJ" || card === "J";
+        return card === 'JJ' || card === 'J';
     }
 
     getSuit(card) {
@@ -50,7 +52,7 @@ class GameUtils {
         // Do they have enough of the suit to play?
         let shouldBePlayed = Math.min(lead.length, hand.countSuit(suit));
         if (cards.countSuit(suit) < shouldBePlayed) {
-            throw "Invalid follow, you still have more of " + suit;
+            throw 'Invalid follow, you still have more of ' + suit;
         }
 
         // TODO: implement pairs and stuff

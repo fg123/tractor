@@ -2,13 +2,13 @@ class Deck {
     constructor(count, startShuffled) {
         this.deck = [];
         for (let i = 0; i < count; i++) {
-            this.deck.push("JJ");
-            this.deck.push("J");
+            this.deck.push('JJ');
+            this.deck.push('J');
             for (let j = 1; j <= 13; j++) {
-                this.deck.push(j + "D");
-                this.deck.push(j + "C");
-                this.deck.push(j + "S");
-                this.deck.push(j + "H");
+                this.deck.push(j + 'D');
+                this.deck.push(j + 'C');
+                this.deck.push(j + 'S');
+                this.deck.push(j + 'H');
             }
         }
         if (startShuffled) {

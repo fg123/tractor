@@ -4,10 +4,10 @@ class Hand {
         this.cardDict['JJ'] = 0;
         this.cardDict['J'] = 0;
         for (let j = 1; j <= 13; j++) {
-            this.cardDict[j + "D"] = 0;
-            this.cardDict[j + "C"] = 0;
-            this.cardDict[j + "S"] = 0;
-            this.cardDict[j + "H"] = 0;
+            this.cardDict[j + 'D'] = 0;
+            this.cardDict[j + 'C'] = 0;
+            this.cardDict[j + 'S'] = 0;
+            this.cardDict[j + 'H'] = 0;
         }
 
         for (let i = 0; i < input.length; i++) {
@@ -24,7 +24,7 @@ class Hand {
             this.cardDict[card] -= 1;
         }
         else {
-            throw "Card " + card + " does not exist in the hand!";
+            throw 'Card ' + card + ' does not exist in the hand!';
         }
     }
 
