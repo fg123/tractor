@@ -1,4 +1,6 @@
 const socket = io();
+const spectatorState = new SpectatorState();
+let myName = '';
 let myId = '';
 let myPosition = 0;
 let players = [];
@@ -7,15 +9,22 @@ let currentTurn = false;
 let cardHand = [];
 let mainCard = '5D';
 let cardsToPlay = [];
-let currentStart = { pairs: ['1H'], singles: ['13H'] };
 let flipStatus = 0;
 const errorQueue = [];
 let errorTimer = undefined;
 
 const ERROR_TIMEOUT = 1000;
+
 updateHand();
 $('#game').hide();
 $('.flipCard').hide();
+function emit(endpoint, data) {
+    if (!data) data = {};
+    console.log('Emitting ' + endpoint);
+    data.room = roomId;
+    socket.emit(endpoint, data);
+}
+
 $(document).ready(() => {
     $('#nickname').focus();
     $('#nickname').keydown((e) => {
@@ -25,63 +34,89 @@ $(document).ready(() => {
     });
 });
 $('#joinGameBtn').click(function () {
-	if ($('#nickname').val() != '')
-	{
-		socket.emit('nickname', $('#nickname').val());
-		$('#login').hide();
+	myName = $('#nickname').val();
+	if ($('#nickname').val() != '') {
+		emit('server.join', {
+			name: $('#nickname').val()
+		});
 	}
 });
 
 
 $('.play-cards').click(function () {
 	console.log('Playing cards', cardsToPlay, cardHand.filter((v, i) => cardsToPlay[i]));
-	socket.emit('play-cards', cardHand.filter((v, i) => cardsToPlay[i]));
+	emit('play-cards', cardHand.filter((v, i) => cardsToPlay[i]));
 });
 
-$('#nickname').val('a');
-$('#joinGameBtn').click();
+$('.cta').click(function(e) {
+	spectatorState.onCtaButtonClick(myName);
+});
+
+$('.start.button').click(function(e) {
+	spectatorState.onStartButtonClicked(myName);
+});
+
+// $('#nickname').val('a');
+// $('#joinGameBtn').click();
+
+socket.on('client.spectator', function (data) {
+	console.log(data);
+	spectatorState.updateSpectatorState(data);
+	$('.roomStatus').html(spectatorState.getStatusDisplay());
+	$('.title h1').text(spectatorState.getTitleText());
+	$('.cta').text(spectatorState.getCtaButtonText(myName));
+	$('.playerStatus h4').text(spectatorState.getStatusText(myName));
+	if (spectatorState.shouldShowStartbutton(myName)) {
+		$('.start.button').show();
+	} else {
+		$('.start.button').hide();
+	}
+});
+
+socket.on('client.error', function (data) {
+	console.error(data.error);
+});
 
 socket.on('updatePlayers', function (p) {
 	players = p;
 });
-socket.on('lobbyEnter', function (id, playerPosition) {
+
+socket.on('client.joinSuccess', function () {
 	$('#game').show();
-	myId = id;
-	myPosition = playerPosition;
+	$('#login').hide();
 });
-socket.on('lobbyFull', function () {
-	$('#login').show();
-	alert('Lobby is full!');
-});
-socket.on('turnPassover', function (p) {
-	currentTurn = true;
-});
-socket.on('flip', function (fStat) {
-	flipStatus = fStat;
-});
-socket.on('setMainNumber', function (n) {
-	mainCard = n + 'D';
+
+socket.on('disconnect', function() {
+	alert('Server disconnected.');
+	window.location.reload();
 });
 
 socket.on('play-cards', function (who, cards) {
 	if (who === myPosition) {
 		setPlayingField('.player-me.playingField', cards);
-		for (let i = 0; i < cards.length; i++) {
-			cardHand.splice(cardHand.indexOf(cards[i]), 1);
-		}
-		cardsToPlay = [];
+		removeCardsFromHand(cards);
 	}
 	else {
 		setPlayingField('.playingField.player-' + who, cards);
 	}
-	updateHand();
+});
 
+socket.on('remove-cards', function (cards) {
+	removeCardsFromHand(cards);
 });
 
 socket.on('server-error', function (msg) {
 	errorQueue.push(msg);
 	showErrorIfNecessary();
 });
+
+function removeCardsFromHand(cards) {
+	for (let i = 0; i < cards.length; i++) {
+		cardHand.splice(cardHand.indexOf(cards[i]), 1);
+	}
+	cardsToPlay = [];
+	updateHand();
+}
 
 function setPlayingField(selector, cards) {
 	$(selector).html('');
@@ -122,19 +157,6 @@ socket.on('updatePlayers', function (plist) {
 
 	updatePlayerUI();
 });
-$('.flip-diamonds').click(function () {
-	socket.emit('flip', 'D');
-});
- $('.flip-clubs').click(function () {
-	socket.emit('flip', 'C');
-});
- $('.flip-hearts').click(function () {
-	socket.emit('flip', 'H');
- });
- $('.flip-spades').click(function () {
-	socket.emit('flip', 'S');
- });
-
 // handContains(card, count) returns true if your hand contains the given number
 //   of the card
 function handContains(card, count)

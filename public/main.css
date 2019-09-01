@@ -134,6 +134,27 @@ div.me {
 	height: 150px;
 }
 
+.cta {
+    background: #aaaa00;
+    border: inset 10px #cccc00;
+    color: #000;
+}
+
+.cta:hover {
+    background: #cccc00;
+    border-color: #dddd00;
+}
+
+.start {
+    background: #008800;
+    border: inset 10px #00aa00;
+}
+
+.start:hover {
+    background: #00aa00;
+    border-color: #00cc00;
+}
+
 div.player {
 	color: #FFF;
 	padding: 10px;

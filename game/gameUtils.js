@@ -36,7 +36,7 @@ class GameUtils {
         return parseInt(card);
     }
 
-    validateLead(lead) {
+validateLead(lead) {
         // TODO: throw and tractor needs to be implemented
         return this.isAllSameCard(lead);
     }

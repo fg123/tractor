@@ -40,6 +40,18 @@ class PlayCardsStateChange {
     }
 }
 
+class DiscardCompleteStateChange {
+    // fromPlayer should be the dealer
+    constructor (fromPlayer, cards) {
+        this.player = fromPlayer;
+        this.cards = cards;
+    }
+
+    sendToClient(socket) {
+        socket.emit('remove-cards', this.cards);
+    }
+}
+
 class ErrorStateChange {
     constructor (toPlayer, msg) {
         this.player = toPlayer;
@@ -91,12 +103,14 @@ class GameState {
 
     deal() {
         this.currentState = STATE_DEALING;
+        // TODO: this needs to be determined by deck size
         if (this.deck.size() <= 8) {
             // Deal the rest to the dealer
             this.currentState = STATE_WAITING_FOR_BOTTOM;
             while (this.deck.size() > 0) {
                 this.dealCardToHand(this.dealer, this.deck.draw());
             }
+            this.currentTurn = this.dealer;
             return;
         }
         this.dealCardToHand(this.currentTurn, this.deck.draw());
@@ -122,6 +136,23 @@ class GameState {
             throw 'Not a valid hand to flip for suit.';
         }
 
+        if (this.currentState === STATE_WAITING_FOR_BOTTOM) {
+            if (player !== this.currentTurn) {
+                throw 'Wait for dealer to discard cards!';
+            }
+            // TODO: this needs to be determined by number of decks
+            if (cards.length !== 8) {
+                throw 'Wrong number of cards to discard!';
+            }
+
+            for (let i = 0; i < cards.length; i++) {
+                this.hands[player].removeCard(cards[i]);
+            }
+
+            this.output(new DiscardCompleteStateChange(player, cards));
+            return;
+        }
+
         if (player !== this.currentTurn) {
             throw 'Not your turn!';
         }
@@ -135,20 +166,21 @@ class GameState {
             // This will throw a valid exception if it's not a valid hand
             this.gameUtils.validateFollow(this.lead, cards, this.hands[player]);
         }
+
+        // If no exception throwed above, we continue.
+        this.advancePlayer();
+        for (let i = 0; i < cards.length; i++) {
+            this.hands[player].removeCard(cards[i]);
+        }
+        for (let i = 0; i < this.playerCount; i++) {
+            this.output(new PlayCardsStateChange(i, player, cards));
+        }
     }
 
     playCards(player, cards) {
         console.log(`Player ${player} played ${cards}`);
         try {
             this._playCards(player, cards);
-            // Notify Everyone
-            for (let i = 0; i < cards.length; i++) {
-                this.hands[player].removeCard(cards[i]);
-            }
-            for (let i = 0; i < this.playerCount; i++) {
-                this.output(new PlayCardsStateChange(i, player, cards));
-            }
-            this.advancePlayer();
         }
         catch (e) {
             this.output(new ErrorStateChange(player, e));
