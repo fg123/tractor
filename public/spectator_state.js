@@ -53,7 +53,7 @@ class SpectatorState {
         if (!this.spectatorState) {
             return [];
         }
-        return this.spectatorState.players.filter(player => player.state === 'playing' || player.state === 'lost');
+        return this.spectatorState.players.filter(player => player.state === 'playing');
     }
 
     getTitleText() {
@@ -69,7 +69,6 @@ class SpectatorState {
     }
 
     getCtaButtonText(name) {
-        console.log()
         if (!this.spectatorState) return 'Loading';
         if (this.getPlayersSpectating().some(p => p.name === name)) return 'Queue for Next Game';
         if (this.getPlayersQueued().some(p => p.name === name)) return 'Unqueue';

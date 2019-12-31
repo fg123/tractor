@@ -27,13 +27,5 @@ class Hand {
             throw 'Card ' + card + ' does not exist in the hand!';
         }
     }
-
-    countSuit(suit) {
-        let count = 0;
-        for (let j = 1; j <= 13; j++) {
-            count += this.cardDict[j + suit];
-        }
-        return count;
-    }
 }
 module.exports = Hand;

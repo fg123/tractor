@@ -2,7 +2,6 @@ const socket = io();
 const spectatorState = new SpectatorState();
 let myName = '';
 let myId = '';
-let myPosition = 0;
 let players = [];
 let gamePlaying = false;
 let currentTurn = false;
@@ -14,6 +13,8 @@ const errorQueue = [];
 let errorTimer = undefined;
 
 const ERROR_TIMEOUT = 1000;
+
+const TEST_AUTO_JOIN = true;
 
 updateHand();
 $('#game').hide();
@@ -33,6 +34,7 @@ $(document).ready(() => {
         }
     });
 });
+
 $('#joinGameBtn').click(function () {
 	myName = $('#nickname').val();
 	if ($('#nickname').val() != '') {
@@ -42,22 +44,25 @@ $('#joinGameBtn').click(function () {
 	}
 });
 
-
 $('.play-cards').click(function () {
 	console.log('Playing cards', cardsToPlay, cardHand.filter((v, i) => cardsToPlay[i]));
-	emit('play-cards', cardHand.filter((v, i) => cardsToPlay[i]));
+	emit('server.play_cards', {
+		cards: cardHand.filter((v, i) => cardsToPlay[i])
+	});
 });
 
 $('.cta').click(function(e) {
 	spectatorState.onCtaButtonClick(myName);
 });
 
-$('.start.button').click(function(e) {
+$('.start.btn').click(function(e) {
 	spectatorState.onStartButtonClicked(myName);
 });
 
-// $('#nickname').val('a');
-// $('#joinGameBtn').click();
+if (TEST_AUTO_JOIN) {
+	$('#nickname').val(Date.now());
+	$('#joinGameBtn').click();
+}
 
 socket.on('client.spectator', function (data) {
 	console.log(data);
@@ -67,14 +72,20 @@ socket.on('client.spectator', function (data) {
 	$('.cta').text(spectatorState.getCtaButtonText(myName));
 	$('.playerStatus h4').text(spectatorState.getStatusText(myName));
 	if (spectatorState.shouldShowStartbutton(myName)) {
-		$('.start.button').show();
+		$('.start.btn').show();
 	} else {
-		$('.start.button').hide();
+		$('.start.btn').hide();
+	}
+	if (TEST_AUTO_JOIN && !window.__cta__test_clicked) {
+		window.__cta__test_clicked = true;
+		$('.cta').click();
 	}
 });
 
 socket.on('client.error', function (data) {
-	console.error(data.error);
+	console.error(Error(data));
+	errorQueue.push(data);
+	showErrorIfNecessary();
 });
 
 socket.on('updatePlayers', function (p) {
@@ -87,28 +98,31 @@ socket.on('client.joinSuccess', function () {
 });
 
 socket.on('disconnect', function() {
-	alert('Server disconnected.');
+	// alert('Server disconnected.');
 	window.location.reload();
 });
 
-socket.on('play-cards', function (who, cards) {
-	if (who === myPosition) {
-		setPlayingField('.player-me.playingField', cards);
-		removeCardsFromHand(cards);
-	}
-	else {
-		setPlayingField('.playingField.player-' + who, cards);
-	}
+socket.on('client.play_cards', function (who, cards) {
+	addPlayed(who, cards);
 });
 
-socket.on('remove-cards', function (cards) {
+socket.on('client.remove_cards', function (cards) {
 	removeCardsFromHand(cards);
 });
 
-socket.on('server-error', function (msg) {
-	errorQueue.push(msg);
-	showErrorIfNecessary();
-});
+function addPlayed(who, cards) {
+	const playerName = spectatorState.getPlayersInGame()[who].name;
+	const newElem = $(`<div class="playingField"></div>`);
+	newElem.width(cards.length * 30 + 80);
+	for (let i = 0; i < cards.length; i++) {
+		newElem.append($(createCard(cards[i], i, i * 30)));
+	}
+	const wrapper = $(`<div class="wrapper"><div class="name">${playerName} played</div></div>`);
+	wrapper.append(newElem);
+	$('.playHistory').append(wrapper);
+
+	$('.playHistory').scrollTop($('.playHistory')[0].scrollHeight);
+}
 
 function removeCardsFromHand(cards) {
 	for (let i = 0; i < cards.length; i++) {
@@ -118,13 +132,6 @@ function removeCardsFromHand(cards) {
 	updateHand();
 }
 
-function setPlayingField(selector, cards) {
-	$(selector).html('');
-	$(selector).width(cards.length * 30 + 80);
-	for (let i = 0; i < cards.length; i++) {
-		$(selector).append($(createCard(cards[i], i, i * 30)));
-	}
-}
 function errorTimeout() {
 	errorTimer = undefined;
 	if (errorQueue.length === 0) {
@@ -142,7 +149,7 @@ function showErrorIfNecessary() {
 	}
 }
 
-socket.on('cardDeal', function (cardToDeal) {
+socket.on('client.card_deal', function (cardToDeal) {
 	console.log('Card Deal Event');
 	cardHand.push(cardToDeal);
 	updateHand();
@@ -152,6 +159,7 @@ socket.on('cardDeal', function (cardToDeal) {
 	handContains(mainCard.slice(0, -1) + 'S', flipStatus + 1) ? $('.flip-spades').show() : $('.flip-spades').hide();
 	handContains('JJ', Math.max(flipStatus + 1, 2)) || handContains('J', Math.max(flipStatus + 1, 2)) ? $('.flip-joker').show() : $('.flip-joker').hide();
 });
+
 socket.on('updatePlayers', function (plist) {
 	players = plist;
 

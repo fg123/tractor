@@ -10,7 +10,7 @@ const Hand = require('./hand');
  * The game state will verify all inputs, and will output an error packet to
  *   the client that gives an invalid input.
  */
-const DEAL_DELAY = 1;
+const DEAL_DELAY = 100;
 const STATE_READY = 'ready';
 const STATE_DEALING = 'dealing';
 const STATE_WAITING_FOR_BOTTOM = 'waiting';
@@ -24,7 +24,7 @@ class DealStateChange {
     }
 
     sendToClient(socket) {
-        socket.emit('cardDeal', this.card);
+        socket.emit('client.card_deal', this.card);
     }
 }
 
@@ -36,7 +36,10 @@ class PlayCardsStateChange {
     }
 
     sendToClient(socket) {
-        socket.emit('play-cards', this.fromPlayer, this.cards);
+        socket.emit('client.play_cards', this.fromPlayer, this.cards);
+        if (this.fromPlayer === this.player) {
+            socket.emit('client.remove_cards', this.cards);
+        }
     }
 }
 
@@ -48,7 +51,7 @@ class DiscardCompleteStateChange {
     }
 
     sendToClient(socket) {
-        socket.emit('remove-cards', this.cards);
+        socket.emit('client.remove_cards', this.cards);
     }
 }
 
@@ -59,7 +62,7 @@ class ErrorStateChange {
     }
 
     sendToClient(socket) {
-        socket.emit('server-error', this.msg);
+        socket.emit('client.error', this.msg);
     }
 }
 
@@ -106,6 +109,10 @@ class GameState {
         // TODO: this needs to be determined by deck size
         if (this.deck.size() <= 8) {
             // Deal the rest to the dealer
+            if (!this.trumpSuit) {
+                setTimeout(() => { this.deal(); }, DEAL_DELAY);
+                return;
+            }
             this.currentState = STATE_WAITING_FOR_BOTTOM;
             while (this.deck.size() > 0) {
                 this.dealCardToHand(this.dealer, this.deck.draw());
@@ -133,38 +140,38 @@ class GameState {
                 this.trumpSuit = this.gameUtils.getSuit(cards[0]);
                 return;
             }
-            throw 'Not a valid hand to flip for suit.';
+            throw Error('Not a valid hand to flip for suit.');
         }
 
         if (this.currentState === STATE_WAITING_FOR_BOTTOM) {
             if (player !== this.currentTurn) {
-                throw 'Wait for dealer to discard cards!';
+                throw Error('Wait for dealer to discard cards!');
             }
             // TODO: this needs to be determined by number of decks
             if (cards.length !== 8) {
-                throw 'Wrong number of cards to discard!';
+                throw Error('Wrong number of cards to discard!');
             }
 
             for (let i = 0; i < cards.length; i++) {
                 this.hands[player].removeCard(cards[i]);
             }
-
+            this.currentState = STATE_IN_GAME;
             this.output(new DiscardCompleteStateChange(player, cards));
             return;
         }
 
         if (player !== this.currentTurn) {
-            throw 'Not your turn!';
+            throw Error('Not your turn!');
         }
 
         if (this.lead === undefined) {
             // TODO: implement throw mechanics
-            this.gameUtils.validateLead(cards);
+            this.validateLead(cards);
             this.lead = cards;
         }
         else {
             // This will throw a valid exception if it's not a valid hand
-            this.gameUtils.validateFollow(this.lead, cards, this.hands[player]);
+            this.validateFollow(this.lead, cards, this.hands[player]);
         }
 
         // If no exception throwed above, we continue.
@@ -183,8 +190,38 @@ class GameState {
             this._playCards(player, cards);
         }
         catch (e) {
-            this.output(new ErrorStateChange(player, e));
+            console.error(e);
+            this.output(new ErrorStateChange(player, e.toString()));
         }
+    }
+
+    validateLead(lead) {
+        // TODO: throw and tractor needs to be implemented
+        if (!this.gameUtils.isAllSameCard(lead)) {
+            throw 'Invalid lead';
+        }
+    }
+
+    validateFollow(lead, cards, hand) {
+        if (cards.length !== this.lead.length) {
+            throw 'Invalid follow! Need the same number of cards!';
+        }
+
+        // Convert cards into a "hand" so we can use "hand" operations
+        cards = new Hand(cards);
+        
+
+        // Throw can allow lead to have different suits, assume for now that they
+        //   are all same suits.
+        let suit = this.gameUtils.getSuit(lead[0]);
+
+        // Do they have enough of the suit to play?
+        let shouldBePlayed = Math.min(lead.length, this.gameUtils.countSuit(hand, suit));
+        if (this.gameUtils.countSuit(cards, suit) < shouldBePlayed) {
+            throw 'Invalid follow, you still have more of ' + suit;
+        }
+
+        // TODO: implement pairs and stuff
     }
 }
 

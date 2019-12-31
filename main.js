@@ -7,25 +7,19 @@ const io = require('socket.io')(http);
 const uuidv4 = require('uuid/v4');
 const path = require('path');
 
-const { DealStateChange, GameState } = require('./game/game.js');
 const Room = require('./room');
 const Player = require('./player');
 
 const port = process.env.PORT || 3000;
-const ID_LEN = 20;
 
 // Global Variables
 const rooms = {};
+const players = {};
 
 http.listen(port, function() {
 	console.log('listening on *:' + port);
 });
 
-// Serve Page to Server
-// app.use(express.static(__dirname + '/public/'));
-// app.get('/', function(req, res){
-//   res.sendFile(__dirname + '/public/index.html');
-// });
 app.use('/static/', express.static(path.join(__dirname, '/public')));
 app.get('/room/*', function(request, result) {
     // TODO(felixguo): This is super arbitrary, probably is a better way
@@ -49,12 +43,6 @@ app.get('/', function(request, result) {
     result.redirect(307, '/room/' + id + '/');
 });
 
-const players = {};
-// const state = new GameState(4, 0, 2, (output) => {
-// 	console.log(output);
-// 	output.sendToClient(io.sockets.connected[PlayerList[output.player].id]);
-// });
-
 io.on('connection', function (socket) {
 	console.log('Connected');
 	socket.on('server.join', function(data) {
@@ -72,8 +60,8 @@ io.on('connection', function (socket) {
 		players[socket.id] = player;
 	});
 
-	socket.on('play-cards', function (cards) {
-		// Erorr check and stuff
+	socket.on('server.play_cards', function (data) {
+		rooms[data.room].play(players[socket.id].name, data.cards);
 	});
 
 	socket.on('server.queue', function (data) {
@@ -88,7 +76,7 @@ io.on('connection', function (socket) {
 
 	socket.on('server.start', function (data) {
 		if (rooms[data.room].getAdmin() === players[socket.id].name) {
-			if (rooms.canStartGame()) {
+			if (rooms[data.room].canStartGame()) {
 				rooms[data.room].startGame();
 			}
 		}
@@ -99,28 +87,6 @@ io.on('connection', function (socket) {
 			removePlayerFromRoom(players[socket.id]);
 		}
 	});
-
-    socket.on('nickname', function (name) {
-		if (PlayerList.length < 4) {
-			const playerPosition = addPlayer(name, socket.id);
-			console.log('Username Assigned ' + name);
-			socket.emit('lobbyEnter', socket.id, playerPosition);
-			io.emit('updatePlayers', PlayerList);
-			if (PlayerList.length === 4) // we have 4 players!
-			{
-				io.emit('setMainNumber', 2);
-                state.start();
-			}
-			socket.on('play-cards', function (cards) {
-				// Throws error to client if invalid
-				state.playCards(playerPosition, cards);
-			});
-		}
-		else {
-			// Game is Full, send LobbyFull to Client
-			socket.emit('lobbyFull', 1);
-		}
-    });
 });
 
 
@@ -132,7 +98,6 @@ function removePlayerFromRoom(player) {
         delete rooms[room.id];
     } else {
         // Notify rest of players someone left (as if they lost)
-        room.onPlayerLose();
         room.pushSpectatorState();
     }
 }

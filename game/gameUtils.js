@@ -1,5 +1,3 @@
-const Hand = require('./hand');
-
 class GameUtils {
     constructor(game) {
         this.game = game;
@@ -36,26 +34,13 @@ class GameUtils {
         return parseInt(card);
     }
 
-validateLead(lead) {
-        // TODO: throw and tractor needs to be implemented
-        return this.isAllSameCard(lead);
-    }
+    countSuit(hand, suit) {
+        console.log(suit);
+        console.log(Object.keys(hand.cardDict));
+        console.log(Object.keys(hand.cardDict).map(x => this.getSuit(x)));
 
-    validateFollow(lead, cards, hand) {
-        // Convert cards into a "hand" so we can use "hand" operations
-        cards = new Hand(cards);
 
-        // Throw can allow lead to have different suits, assume for now that they
-        //   are all same suits.
-        let suit = this.getSuit(lead[0]);
-
-        // Do they have enough of the suit to play?
-        let shouldBePlayed = Math.min(lead.length, hand.countSuit(suit));
-        if (cards.countSuit(suit) < shouldBePlayed) {
-            throw 'Invalid follow, you still have more of ' + suit;
-        }
-
-        // TODO: implement pairs and stuff
+        return Object.keys(hand.cardDict).map(x => this.getSuit(x)).filter(x => x === suit).length;
     }
 }
 
